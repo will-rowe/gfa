@@ -109,7 +109,7 @@ func (gfa *GFA) Validate() error {
 		return fmt.Errorf("Please set GFA to format version 1 or 2")
 	}
 	if gfa.GetVersion() > 2 {
-		return fmt.Errorf("GFA version not recognised: ", gfa.GetVersion())
+		return fmt.Errorf("GFA version not recognised: %d", gfa.GetVersion())
 	}
 	if len(gfa.segments) == 0 {
 		return fmt.Errorf("GFA instance contains no segments")
@@ -164,9 +164,8 @@ func (seg *segment) AddOptionalFields(oFs *optionalFields) {
 func (seg *segment) PrintGFAline() string {
 	if seg.optional != nil {
 		return fmt.Sprintf("%v\t%v\t%v\tLN:i:%v\t%v", seg.recordType, string(seg.name), string(seg.sequence), seg.length, seg.optional.printString)
-	} else {
-		return fmt.Sprintf("%v\t%v\t%v\tLN:i:%v", seg.recordType, string(seg.name), string(seg.sequence), seg.length)
 	}
+	return fmt.Sprintf("%v\t%v\t%v\tLN:i:%v", seg.recordType, string(seg.name), string(seg.sequence), seg.length)
 }
 
 // Add checks that a segment is not already in a specified GFA isntance, then adds it
@@ -225,10 +224,9 @@ func (link *link) AddOptionalFields(oFs *optionalFields) {
 // PrintGFAline prints a GFA formatted link line
 func (link *link) PrintGFAline() string {
 	if link.optional != nil {
-		return fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t", link.recordType, string(link.from), link.fromOrient, string(link.to), link.toOrient, link.overlap, link.optional.printString)
-	} else {
-		return fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v", link.recordType, string(link.from), link.fromOrient, string(link.to), link.toOrient, link.overlap)
+		return fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v", link.recordType, string(link.from), link.fromOrient, string(link.to), link.toOrient, link.overlap, link.optional.printString)
 	}
+	return fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v", link.recordType, string(link.from), link.fromOrient, string(link.to), link.toOrient, link.overlap)
 }
 
 // Add appends a link to a specified GFA instance
