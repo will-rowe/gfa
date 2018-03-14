@@ -117,6 +117,43 @@ func (gfa *GFA) Validate() error {
 	return nil
 }
 
+// MarshalHeader prepares the header/comment lines for a writer
+func (gfa *GFA) MarshalHeader() []byte {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "%v\tVN:Z:%v\n", gfa.header.recordType, gfa.header.vn)
+	if len(gfa.comments) != 0 {
+		fmt.Fprintf(&buf, "%s", bytes.Join(gfa.comments, []byte("\n")))
+		buf.WriteByte('\n')
+	}
+	return buf.Bytes()
+}
+
+// WriteGFAContent will dump the content of a GFA instance to file
+func (gfa *GFA) WriteGFAContent(w *GFAwriter) error {
+	if err := gfa.Validate(); err != nil {
+		return fmt.Errorf("GFA validation failed, can't write GFA content: %v", err)
+	}
+	for _, seg := range gfa.segments {
+		err := w.Write(seg)
+		if err != nil {
+			return fmt.Errorf("Can't write GFA content: %v", err)
+		}
+	}
+	for _, link := range gfa.links {
+		err := w.Write(link)
+		if err != nil {
+			return fmt.Errorf("Can't write GFA content: %v", err)
+		}
+	}
+	for _, path := range gfa.paths {
+		err := w.Write(path)
+		if err != nil {
+			return fmt.Errorf("Can't write GFA content: %v", err)
+		}
+	}
+	return nil
+}
+
 // A header contains a type field (required) and a GFA version number field (optional)
 type header struct {
 	recordType string

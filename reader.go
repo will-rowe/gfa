@@ -71,6 +71,10 @@ func (r *Reader) Read() (gfaLine, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(bytesLine) <= 1 {
+		return nil, fmt.Errorf("Encountered empty line, quiting")
+	}
+
 	// trim the line
 	bytesLine = bytesLine[:len(bytesLine)-1]
 	if bytesLine[len(bytesLine)-1] == '\r' {
@@ -123,6 +127,28 @@ func (r *Reader) Read() (gfaLine, error) {
 		}
 		line.AddOptionalFields(oFs)
 	}
-
 	return line, nil
+}
+
+// Writer implements GFA format writing
+type GFAwriter struct {
+	w io.Writer
+}
+
+// NewWriter returns a Writer to the given io.Writer
+func NewWriter(w io.Writer, myGFA *GFA) (*GFAwriter, error) {
+	writer := &GFAwriter{w: w}
+	_, err := writer.w.Write(myGFA.MarshalHeader())
+	if err != nil {
+		return nil, err
+	}
+	return writer, nil
+}
+
+// Write writes a line to the GFA stream
+func (myWriter *GFAwriter) Write(line gfaLine) error {
+	b := []byte(line.PrintGFAline())
+	b = append(b, '\n')
+	_, err := myWriter.w.Write(b)
+	return err
 }

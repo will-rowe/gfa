@@ -88,3 +88,42 @@ func TestRead(t *testing.T) {
 		t.Log(path.PrintGFAline())
 	}
 }
+
+// write a GFA instance to file
+func TestNewWriter(t *testing.T) {
+	// open a file
+	fh, err := os.Open(testFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fh.Close()
+	// create a new GFA reader
+	reader, err := NewReader(fh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// collect the GFA instance
+	myGFA := reader.CollectGFA()
+	// read the GFA file
+	for {
+		line, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		// add the line to a GFA instance
+		if err := line.Add(myGFA); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// create a gfaWriter
+	outfile, err := os.Create("./example2.gfa")
+	defer outfile.Close()
+	writer, err := NewWriter(outfile, myGFA)
+	// write the GFA content
+	if err := myGFA.WriteGFAContent(writer); err != nil {
+		t.Fatal(err)
+	}
+}
