@@ -73,16 +73,18 @@ func TestRead(t *testing.T) {
 	for _, seg := range segments {
 		t.Log(seg.PrintGFAline())
 	}
-
 	links, err := myGFA.GetLinks()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, seg := range segments {
-		t.Log(seg.PrintGFAline())
-	}
 	for _, link := range links {
 		t.Log(link.PrintGFAline())
 	}
-
+	paths, err := myGFA.GetPaths()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range paths {
+		t.Log(path.PrintGFAline())
+	}
 }

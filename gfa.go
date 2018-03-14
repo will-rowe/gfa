@@ -20,15 +20,15 @@ type GFA struct {
 	comments     [][]byte
 	segments     []*segment
 	links        []*link
-	containments []containment       // TODO: not yet implemented
-	paths        []path              // TODO: not yet implemented
-	segRecord    map[string]struct{} // prevent duplicate segment IDs being added
+	containments []containment // TODO: not yet implemented
+	paths        []*path
+	segRecord    map[string]struct{} // prevents duplicate segment IDs being added
 }
 
 // NewGFA returns a new GFA instance
 func NewGFA() *GFA {
 	return &GFA{
-		header:    &header{entryType: "H"},
+		header:    &header{recordType: "H"},
 		segRecord: make(map[string]struct{}),
 	}
 }
@@ -79,9 +79,17 @@ func (gfa *GFA) GetLinks() ([]*link, error) {
 	return gfa.links, nil
 }
 
+// GetPaths returns a slice of all the paths held in the GFA instance
+func (gfa *GFA) GetPaths() ([]*path, error) {
+	if len(gfa.paths) == 0 {
+		return nil, fmt.Errorf("no paths currently held in GFA instance")
+	}
+	return gfa.paths, nil
+}
+
 // PrintHeader prints the GFA formatted header line
 func (gfa *GFA) PrintHeader() string {
-	return fmt.Sprintf("%v\tVN:Z:%v", gfa.header.entryType, gfa.header.vn)
+	return fmt.Sprintf("%v\tVN:Z:%v", gfa.header.recordType, gfa.header.vn)
 }
 
 // PrintComments prints a string of GFA formatted comment line(s)
@@ -89,96 +97,79 @@ func (gfa *GFA) PrintComments() string {
 	return fmt.Sprintf("%s", bytes.Join(gfa.comments, []byte("\n")))
 }
 
+/*
+Validate performs several checks on the GFA instance TODO: add more checks
+
+// checks that it contains a version (1/2)
+
+// checks that is contains 1 or more segments
+*/
+func (gfa *GFA) Validate() error {
+	if gfa.GetVersion() == 0 {
+		return fmt.Errorf("Please set GFA to format version 1 or 2")
+	}
+	if gfa.GetVersion() > 2 {
+		return fmt.Errorf("GFA version not recognised: ", gfa.GetVersion())
+	}
+	if len(gfa.segments) == 0 {
+		return fmt.Errorf("GFA instance contains no segments")
+	}
+	return nil
+}
+
 // A header contains a type field (required) and a GFA version number field (optional)
 type header struct {
-	entryType string
-	vn        int
+	recordType string
+	vn         int
 }
 
 // An interface for the non-comment/header GFA lines
 type gfaLine interface {
+	AddOptionalFields(*optionalFields)
 	PrintGFAline() string
 	Add(*GFA) error
 }
 
 // A segment contains a type field, name and sequence (all required), plus optional fields (length, ...)
 type segment struct {
-	entryType string
-	name      []byte
-	sequence  []byte // this is technically not required by the spec but I have set it as required here
-	length    int
-	readCount int
-	fragCount int
-	kmerCount int
-	checksum  []byte
-	uri       string
+	recordType string
+	name       []byte
+	sequence   []byte // this is technically not required by the spec but I have set it as required here
+	length     int    // this is technically an optional field but is added automatically when a sequence is supplied
+	optional   *optionalFields
 }
 
-/*
-NewSegment is a segment constructor
-
-// segment name (n) and sequence (seq) are requred fields
-
-// optional fields can be supplied
-*/
-func NewSegment(n, seq []byte, optional ...[]byte) (*segment, error) {
+// NewSegment is a segment constructor
+func NewSegment(n, seq []byte) (*segment, error) {
 	if bytes.ContainsAny(n, "+-*= ") {
 		return nil, fmt.Errorf("Segment name can't contain +/-/*/= or whitespace")
 	}
 	if len(seq) == 0 {
 		return nil, fmt.Errorf("Segment must have a sequence")
 	}
-	seg := new(segment)
-	seg.entryType = "S"
-	seg.name = n
-	seg.sequence = seq
-	seg.length = len(seq)
-	if len(optional) != 0 {
-		for _, field := range optional {
-			val := bytes.Split(field, []byte(":"))
-			switch string(val[0]) {
-			case "RC":
-				seg.readCount = int(val[2][0])
-			case "FC":
-				seg.fragCount = int(val[2][0])
-			case "KC":
-				seg.kmerCount = int(val[2][0])
-			case "SH":
-				seg.checksum = val[2]
-			case "UR":
-				seg.uri = string(val[2])
-			case "LN":
-				continue
-			default:
-				return nil, fmt.Errorf("Don't recognise optional field: %v", string(field))
-			}
-		}
-	}
-	return seg, nil
+	return &segment{
+		recordType: "S",
+		name:       n,
+		sequence:   seq,
+		length:     len(seq),
+	}, nil
+}
+
+// AddOptionalFields adds a set of optional fields to a segment
+func (seg *segment) AddOptionalFields(oFs *optionalFields) {
+	seg.optional = oFs
 }
 
 // PrintGFAline prints a GFA formatted segment line
 func (seg *segment) PrintGFAline() string {
-	line := fmt.Sprintf("%v\t%v\t%v\tLN:i:%v", seg.entryType, string(seg.name), string(seg.sequence), seg.length)
-	if seg.readCount != 0 {
-		line = fmt.Sprintf("%v\tRC:i:%v", line, seg.readCount)
+	if seg.optional != nil {
+		return fmt.Sprintf("%v\t%v\t%v\tLN:i:%v\t%v", seg.recordType, string(seg.name), string(seg.sequence), seg.length, seg.optional.printString)
+	} else {
+		return fmt.Sprintf("%v\t%v\t%v\tLN:i:%v", seg.recordType, string(seg.name), string(seg.sequence), seg.length)
 	}
-	if seg.fragCount != 0 {
-		line = fmt.Sprintf("%v\tFC:i:%v", line, seg.fragCount)
-	}
-	if seg.kmerCount != 0 {
-		line = fmt.Sprintf("%v\tKC:i:%v", line, seg.kmerCount)
-	}
-	if seg.checksum != nil {
-		line = fmt.Sprintf("%v\tSH:i:%s", line, seg.checksum)
-	}
-	if seg.uri != "" {
-		line = fmt.Sprintf("%v\tUR:i:%v", line, seg.uri)
-	}
-	return line
 }
 
-// Add appends a segment to a specified GFA instance
+// Add checks that a segment is not already in a specified GFA isntance, then adds it
 func (seg *segment) Add(gfa *GFA) error {
 	if _, ok := gfa.segRecord[string(seg.name)]; ok {
 		return fmt.Errorf("Duplicate segment name already present in GFA instance: %v", string(seg.name))
@@ -188,31 +179,19 @@ func (seg *segment) Add(gfa *GFA) error {
 	return nil
 }
 
-/*
-Links are the primary mechanism to connect segments. Links connect oriented segments.
-A link from A to B means that the end of A overlaps with the start of B.
-If either is marked with -, we replace the sequence of the segment with its reverse complement, whereas a + indicates the segment sequence is used as-is.
-The length of the overlap is determined by the CIGAR string of the link.
-When the overlap is 0M the B segment follows directly after A.
-When the CIGAR string is *, the nature of the overlap is not specified.
-*/
+// A link connects oriented segments
 type link struct {
-	entryType  string
+	recordType string
 	from       []byte
 	fromOrient string
 	to         []byte
 	toOrient   string
 	overlap    string
+	optional   *optionalFields
 }
 
-/*
-NewLink is a link constructor
-
-// from, fOrient, to, tOrient and overlap are requred fields
-
-// optional fields can be supplied
-*/
-func NewLink(from, fOrient, to, tOrient, overlap []byte, optional ...[]byte) (*link, error) {
+// NewLink is a link constructor
+func NewLink(from, fOrient, to, tOrient, overlap []byte) (*link, error) {
 	if bytes.ContainsAny(from, "+-*= ") {
 		return nil, fmt.Errorf("Segment name can't contain +/-/*/= or whitespace")
 	}
@@ -222,7 +201,7 @@ func NewLink(from, fOrient, to, tOrient, overlap []byte, optional ...[]byte) (*l
 	link := new(link)
 	link.from = from
 	link.to = to
-	link.entryType = "L"
+	link.recordType = "L"
 	fori, tori := string(fOrient), string(tOrient)
 	if (fori == "+") || (fori == "-") {
 		link.fromOrient = fori
@@ -235,15 +214,21 @@ func NewLink(from, fOrient, to, tOrient, overlap []byte, optional ...[]byte) (*l
 		return nil, fmt.Errorf("To orientation field must be either + or -")
 	}
 	link.overlap = string(overlap)
-	// TODO: add optional fields...
-
 	return link, nil
 }
 
+// AddOptionalFields adds a set of optional fields to a link
+func (link *link) AddOptionalFields(oFs *optionalFields) {
+	link.optional = oFs
+}
+
 // PrintGFAline prints a GFA formatted link line
-func (self *link) PrintGFAline() string {
-	line := fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v", self.entryType, string(self.from), self.fromOrient, string(self.to), self.toOrient, self.overlap)
-	return line
+func (link *link) PrintGFAline() string {
+	if link.optional != nil {
+		return fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t", link.recordType, string(link.from), link.fromOrient, string(link.to), link.toOrient, link.overlap, link.optional.printString)
+	} else {
+		return fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v", link.recordType, string(link.from), link.fromOrient, string(link.to), link.toOrient, link.overlap)
+	}
 }
 
 // Add appends a link to a specified GFA instance
@@ -254,10 +239,91 @@ func (link *link) Add(gfa *GFA) error {
 
 // containment
 type containment struct {
-	entryType string
+	recordType string
 }
 
-// path
+// A path records a graph traversal
 type path struct {
-	entryType string
+	recordType string
+	pathName   []byte
+	segNames   [][]byte
+	overlaps   [][]byte
+	optional   *optionalFields
+}
+
+// NewPath is a path constructor
+func NewPath(n []byte, segs, olaps [][]byte) (*path, error) {
+	if bytes.ContainsAny(n, "+-*= ") {
+		return nil, fmt.Errorf("Path name can't contain +/-/*/= or whitespace")
+	}
+
+	return &path{
+		recordType: "P",
+		pathName:   n,
+		segNames:   segs,
+		overlaps:   olaps,
+	}, nil
+}
+
+// PrintGFAline prints a GFA formatted segment line
+func (path *path) PrintGFAline() string {
+	return fmt.Sprintf("%v\t%v\t%v\t%v", path.recordType, string(path.pathName), string(bytes.Join(path.segNames, []byte(","))), string(bytes.Join(path.overlaps, []byte(","))))
+}
+
+// Add appends a path to a specified GFA instance
+func (path *path) Add(gfa *GFA) error {
+	gfa.paths = append(gfa.paths, path)
+	return nil
+}
+
+// AddOptionalFields adds a set of optional fields to a path
+func (path *path) AddOptionalFields(oFs *optionalFields) {
+	path.optional = oFs
+}
+
+// The optional fields type is an effort to clean up the segment/containment/path types and have all the optional fields in one type
+type optionalFields struct {
+	readCount   int
+	fragCount   int
+	kmerCount   int
+	checksum    []byte
+	uri         string
+	printString string
+}
+
+// NewOptionalFields is an optionalFields constructor
+func NewOptionalFields(optional ...[]byte) (*optionalFields, error) {
+	oFs := new(optionalFields)
+	if len(optional) != 0 {
+		for _, field := range optional {
+			val := bytes.Split(field, []byte(":"))
+			switch string(val[0]) {
+			// segment optional fields
+			case "LN":
+				continue
+			case "RC":
+				oFs.readCount = int(val[2][0])
+				oFs.printString = fmt.Sprintf("RC:i:%d\t%v", oFs.readCount, oFs.printString)
+			case "FC":
+				oFs.fragCount = int(val[2][0])
+				oFs.printString = fmt.Sprintf("FC:i:%d\t%v", oFs.fragCount, oFs.printString)
+			case "KC":
+				oFs.kmerCount = int(val[2][0])
+				oFs.printString = fmt.Sprintf("KC:i:%d\t%v", oFs.kmerCount, oFs.printString)
+			case "SH":
+				oFs.checksum = val[2]
+				oFs.printString = fmt.Sprintf("SH:H:%s\t%v", oFs.checksum, oFs.printString)
+			case "UR":
+				oFs.uri = string(val[2])
+				oFs.printString = fmt.Sprintf("UR:Z:%v\t%v", oFs.uri, oFs.printString)
+			// TODO: add optional fields for links and containments
+			default:
+				continue
+				//return nil, fmt.Errorf("Don't recognise optional field: %v", string(field))
+			}
+		}
+	} else {
+		return nil, fmt.Errorf("No optional fields supplied")
+	}
+	return oFs, nil
 }

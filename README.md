@@ -98,7 +98,7 @@ func main() {
 
 		// you can also add the line to the GFA instance
 		if err := line.Add(myGFA); err != nil {
-			log.Fatal("error line to GFA instance: %v", err)
+			log.Fatal("error adding line to GFA instance: %v", err)
 		}
 	}
 }

@@ -79,52 +79,50 @@ func (r *Reader) Read() (gfaLine, error) {
 	var line gfaLine
 	// split the line on tab
 	fields := bytes.Split(bytesLine, []byte("\t"))
-	numFields := len(fields)
-	if numFields < 3 {
+	if len(fields) < 3 {
 		return nil, fmt.Errorf("Not enough fields in GFA line: %v", string(bytesLine))
 	}
-	// determine what type of line it is
+	// determine what type of line it is and then create a gfaLine using the required fields
 	switch bytesLine[0] {
 	// segment line (S)
 	case 83:
-		if len(fields) > 3 {
-			line, err = NewSegment(fields[1], fields[2], fields[3:]...)
-			if err != nil {
-				return nil, fmt.Errorf("Could not read segment line: %v", err)
-			}
-		} else {
-			line, err = NewSegment(fields[1], fields[2])
-			if err != nil {
-				return nil, fmt.Errorf("Could not read segment line: %v", err)
-			}
+		line, err = NewSegment(fields[1], fields[2])
+		if err != nil {
+			return nil, fmt.Errorf("Could not read segment line: %v", err)
 		}
+		fields = fields[3:]
 	// link line (L)
 	case 76:
-		if len(fields) > 6 {
-			line, err = NewLink(fields[1], fields[2], fields[3], fields[4], fields[5], fields[6:]...)
-			if err != nil {
-				return nil, fmt.Errorf("Could not read link line: %v", err)
-			}
-		} else {
-			line, err = NewLink(fields[1], fields[2], fields[3], fields[4], fields[5])
-			if err != nil {
-				return nil, fmt.Errorf("Could not read link line: %v", err)
-			}
+		line, err = NewLink(fields[1], fields[2], fields[3], fields[4], fields[5])
+		if err != nil {
+			return nil, fmt.Errorf("Could not read link line: %v", err)
 		}
+		fields = fields[6:]
 	// containment line (C)
 	case 67:
 		line, err = NewSegment([]byte("dummy4containment"), []byte("actg"))
 		if err != nil {
 			return nil, fmt.Errorf("Could not read containment line: %v", err)
 		}
+		fields = fields[3:]
 	// path line (P)
 	case 80:
-		line, err = NewSegment([]byte("dummy4path"), []byte("actg"))
+		line, err = NewPath(fields[1], bytes.Split(fields[2], []byte(",")), bytes.Split(fields[3], []byte(",")))
 		if err != nil {
 			return nil, fmt.Errorf("Could not read path line: %v", err)
 		}
+		fields = fields[4:]
 	default:
 		return nil, fmt.Errorf("Encountered unknown line type: %v", string(bytesLine[0]))
 	}
+	// fields slice will now only contain optional fields (if present)
+	if len(fields) != 0 {
+		oFs, err := NewOptionalFields(fields...)
+		if err != nil {
+			return nil, fmt.Errorf("Could not parse optional fields: %v", err)
+		}
+		line.AddOptionalFields(oFs)
+	}
+
 	return line, nil
 }

@@ -78,3 +78,28 @@ func TestNewSegment(t *testing.T) {
 		t.Log(err)
 	}
 }
+
+// validate a GFA instance
+func TestGFAvalidity(t *testing.T) {
+	myGFA := NewGFA()
+	if err := myGFA.Validate(); err != nil {
+		t.Log(err)
+	}
+	err := myGFA.AddVersion(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := myGFA.Validate(); err != nil {
+		t.Log(err)
+	}
+	seg, err := NewSegment([]byte("1"), []byte("actg"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = seg.Add(myGFA); err != nil {
+		t.Fatal(err)
+	}
+	if err := myGFA.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}
