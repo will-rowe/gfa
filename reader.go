@@ -10,15 +10,14 @@ import (
 // Reader implements GFA format reading.
 type Reader struct {
 	reader *bufio.Reader
-	meta   *header
+	gfa    *GFA
 }
 
-// NewReader returns a new Reader, reading from the given io.Reader.
+// NewReader returns a new Reader, reading from the given io.Reader
 func NewReader(r io.Reader) (*Reader, error) {
-	h := NewHeader()
 	gfaReader := &Reader{
 		reader: bufio.NewReader(r),
-		meta:   h,
+		gfa:    NewGFA(),
 	}
 	// check there is something in the file
 	_, err := gfaReader.reader.Peek(1)
@@ -41,18 +40,18 @@ func NewReader(r io.Reader) (*Reader, error) {
 				return nil, io.ErrUnexpectedEOF
 			}
 			if bytes.Contains(line, []byte("VN:Z:1")) {
-				err := gfaReader.meta.AddVersionNumber(1)
+				err := gfaReader.gfa.AddVersion(1)
 				if err != nil {
 					return nil, err
 				}
 			} else if bytes.Contains(line, []byte("VN:Z:2")) {
-				err := gfaReader.meta.AddVersionNumber(2)
+				err := gfaReader.gfa.AddVersion(2)
 				if err != nil {
 					return nil, err
 				}
 			}
 			if line[0] == '#' {
-				gfaReader.meta.AddComment(line[1 : len(line)-1])
+				gfaReader.gfa.AddComment(line[1 : len(line)-1])
 			}
 		} else {
 			break
@@ -61,12 +60,12 @@ func NewReader(r io.Reader) (*Reader, error) {
 	return gfaReader, nil
 }
 
-// Returns the GFA metadata held by the reader
-func (r *Reader) CollectMeta() *header {
-	return r.meta
+// CollectGFA returns the GFA instance held by the reader
+func (r *Reader) CollectGFA() *GFA {
+	return r.gfa
 }
 
-// Read returns the next (non H/#) line in the GFA file
+// Read returns the next (non H/#) GFA line from the reader
 func (r *Reader) Read() (gfaLine, error) {
 	bytesLine, err := r.reader.ReadBytes('\n')
 	if err != nil {
@@ -78,12 +77,16 @@ func (r *Reader) Read() (gfaLine, error) {
 		bytesLine = bytesLine[:len(bytesLine)-1]
 	}
 	var line gfaLine
-	// grab segment lines (S)
-	if bytesLine[0] == 83 {
-		fields, err := parseLine(bytesLine)
-		if err != nil {
-			return nil, fmt.Errorf("Could parse line: %v", err)
-		}
+	// split the line on tab
+	fields := bytes.Split(bytesLine, []byte("\t"))
+	numFields := len(fields)
+	if numFields < 3 {
+		return nil, fmt.Errorf("Not enough fields in GFA line: %v", string(bytesLine))
+	}
+	// determine what type of line it is
+	switch bytesLine[0] {
+	// segment line (S)
+	case 83:
 		if len(fields) > 3 {
 			line, err = NewSegment(fields[1], fields[2], fields[3:]...)
 			if err != nil {
@@ -95,13 +98,8 @@ func (r *Reader) Read() (gfaLine, error) {
 				return nil, fmt.Errorf("Could not read segment line: %v", err)
 			}
 		}
-	}
-	// grab link lines (L)
-	if bytesLine[0] == 76 {
-		fields, err := parseLine(bytesLine)
-		if err != nil {
-			return nil, fmt.Errorf("Could parse line: %v", err)
-		}
+	// link line (L)
+	case 76:
 		if len(fields) > 6 {
 			line, err = NewLink(fields[1], fields[2], fields[3], fields[4], fields[5], fields[6:]...)
 			if err != nil {
@@ -113,42 +111,20 @@ func (r *Reader) Read() (gfaLine, error) {
 				return nil, fmt.Errorf("Could not read link line: %v", err)
 			}
 		}
-	}
-
-	// grab containment lines (C)
-	if bytesLine[0] == 67 {
-		line, err = NewSegment([]byte("dummy"), []byte("actg"))
+	// containment line (C)
+	case 67:
+		line, err = NewSegment([]byte("dummy4containment"), []byte("actg"))
 		if err != nil {
-			return nil, fmt.Errorf("Could not read link line: %v", err)
+			return nil, fmt.Errorf("Could not read containment line: %v", err)
 		}
-	}
-
-	// grab containment lines (P)
-	if bytesLine[0] == 80 {
-		line, err = NewSegment([]byte("dummy"), []byte("actg"))
+	// path line (P)
+	case 80:
+		line, err = NewSegment([]byte("dummy4path"), []byte("actg"))
 		if err != nil {
-			return nil, fmt.Errorf("Could not read link line: %v", err)
+			return nil, fmt.Errorf("Could not read path line: %v", err)
 		}
-	}
-
-	// return error if the line type could not be identified
-	if line == nil {
+	default:
 		return nil, fmt.Errorf("Encountered unknown line type: %v", string(bytesLine[0]))
 	}
 	return line, nil
-}
-
-// Parses the gfa (non header/comment) lines
-func parseLine(line []byte) ([][]byte, error) {
-	fields := bytes.Split(line, []byte("\t"))
-	// need at least 3 fields
-	if len(fields) < 3 {
-		return nil, fmt.Errorf("Not enough fields in GFA line: %v", string(line))
-	}
-	// basic check of the sequence field
-	if bytes.ContainsAny(fields[2], ": ") {
-		return nil, fmt.Errorf("Doesn't look like sequence (%v): %v", string(fields[2]), string(line))
-	}
-
-	return fields, nil
 }

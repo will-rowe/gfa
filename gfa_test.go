@@ -4,46 +4,30 @@ import (
 	"testing"
 )
 
-// initialise GFA
-func TestNewGFA(t *testing.T) {
+// initialise GFA, add header and comments
+func TestHeader(t *testing.T) {
 	t.Log("creating a GFA instance")
-	_, err := NewGFA()
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-// initalise metadata
-func TestMetadata(t *testing.T) {
-	t.Log("initalise metadata")
-	meta := NewHeader()
+	myGFA := NewGFA()
 	t.Log("adding version number, printing header and version:")
-	err := meta.AddVersionNumber(1)
+	err := myGFA.AddVersion(1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(meta.Header())
-	t.Log(meta.Version())
+	t.Log(myGFA.PrintHeader())
+	t.Log(myGFA.GetVersion())
 	t.Log("adding bad version number:")
-	err = meta.AddVersionNumber(3)
+	err = myGFA.AddVersion(3)
 	if err != nil {
 		t.Log(err)
 	}
 	t.Log("adding and printing comments:")
-	meta.AddComment([]byte("a gfa comment"))
-	meta.AddComment([]byte("another one"))
-	if comments := meta.Comments(); comments != "" {
+	myGFA.AddComment([]byte("a gfa comment"))
+	myGFA.AddComment([]byte("another one"))
+	if comments := myGFA.PrintComments(); comments != "" {
 		t.Log(comments)
 	} else {
 		t.Fatal()
 	}
-	t.Log("creating a GFA instance, linking metadata and printing header")
-	myGFA, err := NewGFA()
-	if err != nil {
-		t.Fatal(err)
-	}
-	myGFA.Metadata = meta
-	t.Log(myGFA.Metadata.Header())
 }
 
 // initialise GFA and add some segments
@@ -59,11 +43,13 @@ func TestNewSegment(t *testing.T) {
 	}
 	t.Log("printing the segments:")
 	t.Log(seg.PrintGFAline())
-	t.Log("adding the segments to a GFA instance")
-	myGFA, err := NewGFA()
-	if err != nil {
-		t.Fatal(err)
+	t.Log("checking empty GFA gives error for GetSegments")
+	myGFA := NewGFA()
+	// test for GFA with no segments
+	if _, err := myGFA.GetSegments(); err != nil {
+		t.Log(err)
 	}
+	t.Log("adding the segments to a GFA instance")
 	if err = seg.Add(myGFA); err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +57,11 @@ func TestNewSegment(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log("printing the segments from the GFA:")
-	for _, seg := range myGFA.GetSegments() {
+	segments, err := myGFA.GetSegments()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, seg := range segments {
 		t.Log(seg.PrintGFAline())
 	}
 	t.Log("testing a badly named segment:")

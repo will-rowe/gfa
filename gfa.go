@@ -14,9 +14,10 @@ import (
 	"fmt"
 )
 
-// The GFA type
+// The GFA type holds all the information from a GFA formatted file
 type GFA struct {
-	Metadata     *header // metadata contains both the header and comments
+	header       *header
+	comments     [][]byte
 	segments     []*segment
 	links        []*link
 	containments []containment       // TODO: not yet implemented
@@ -24,48 +25,21 @@ type GFA struct {
 	segRecord    map[string]struct{} // prevent duplicate segment IDs being added
 }
 
-// Returns a new GFA instance
-func NewGFA() (*GFA, error) {
+// NewGFA returns a new GFA instance
+func NewGFA() *GFA {
 	return &GFA{
-		Metadata:  NewHeader(),
+		header:    &header{entryType: "H"},
 		segRecord: make(map[string]struct{}),
-	}, nil
+	}
 }
 
-// Returns the GFA segments
-func (self *GFA) GetSegments() []*segment {
-	return self.segments
-}
-
-// Returns the GFA links
-func (self *GFA) GetLinks() []*link {
-	return self.links
-}
-
-// A header contains a type field (required) and a version number field (optional)
-type header struct {
-	entryType string
-	vn        int      // GFA version number
-	comments  [][]byte // storing comments with header for simplicity
-}
-
-// Returns a new header
-func NewHeader() *header {
-	return &header{entryType: "H"}
-}
-
-// Returns the formatted header line
-func (self *header) Header() string {
-	return fmt.Sprintf("%v\tVN:Z:%v", self.entryType, self.vn)
-}
-
-// Updates the header with a version number
-func (self *header) AddVersionNumber(v int) error {
+// AddVersion adds the GFA format version to the GFA instance
+func (gfa *GFA) AddVersion(v int) error {
 	switch v {
 	case 0:
 		return fmt.Errorf("GFA instance already has a version number attached")
 	case 1:
-		self.vn = v
+		gfa.header.vn = v
 	case 2:
 		return fmt.Errorf("GFA version 2 is currently unsupported...")
 	default:
@@ -74,26 +48,56 @@ func (self *header) AddVersionNumber(v int) error {
 	return nil
 }
 
-// Returns the GFA version number
-func (self *header) Version() int {
-	return self.vn
-}
-
-// Adds comments to a GFA header
-func (self *header) AddComment(c []byte) {
+// AddComment appends a comment to the comments held by the GFA instance
+func (gfa *GFA) AddComment(c []byte) {
 	comment := append([]byte("#\t"), c...)
-	self.comments = append(self.comments, comment)
+	gfa.comments = append(gfa.comments, comment)
 }
 
-// Returns a string containing the comments from a GFA header
-func (self *header) Comments() string {
-	return fmt.Sprintf("%s", bytes.Join(self.comments, []byte("\n")))
+/*
+GetVersion returns the GFA version
+
+// a return value of 0 indicates no version set
+*/
+func (gfa *GFA) GetVersion() int {
+	return gfa.header.vn
+}
+
+// GetSegments returns a slice of all the segments held in the GFA instance
+func (gfa *GFA) GetSegments() ([]*segment, error) {
+	if len(gfa.segments) == 0 {
+		return nil, fmt.Errorf("no segments currently held in GFA instance")
+	}
+	return gfa.segments, nil
+}
+
+// GetLinks returns a slice of all the links held in the GFA instance
+func (gfa *GFA) GetLinks() ([]*link, error) {
+	if len(gfa.links) == 0 {
+		return nil, fmt.Errorf("no links currently held in GFA instance")
+	}
+	return gfa.links, nil
+}
+
+// PrintHeader prints the GFA formatted header line
+func (gfa *GFA) PrintHeader() string {
+	return fmt.Sprintf("%v\tVN:Z:%v", gfa.header.entryType, gfa.header.vn)
+}
+
+// PrintComments prints a string of GFA formatted comment line(s)
+func (gfa *GFA) PrintComments() string {
+	return fmt.Sprintf("%s", bytes.Join(gfa.comments, []byte("\n")))
+}
+
+// A header contains a type field (required) and a GFA version number field (optional)
+type header struct {
+	entryType string
+	vn        int
 }
 
 // An interface for the non-comment/header GFA lines
 type gfaLine interface {
 	PrintGFAline() string
-	PrintType() string
 	Add(*GFA) error
 }
 
@@ -110,7 +114,13 @@ type segment struct {
 	uri       string
 }
 
-// Segment constructor
+/*
+NewSegment is a segment constructor
+
+// segment name (n) and sequence (seq) are requred fields
+
+// optional fields can be supplied
+*/
 func NewSegment(n, seq []byte, optional ...[]byte) (*segment, error) {
 	if bytes.ContainsAny(n, "+-*= ") {
 		return nil, fmt.Errorf("Segment name can't contain +/-/*/= or whitespace")
@@ -147,40 +157,35 @@ func NewSegment(n, seq []byte, optional ...[]byte) (*segment, error) {
 	return seg, nil
 }
 
-// Returns a formatted segment line
-func (self *segment) PrintGFAline() string {
-	line := fmt.Sprintf("%v\t%v\t%v\tLN:i:%v", self.entryType, string(self.name), string(self.sequence), self.length)
-	if self.readCount != 0 {
-		line = fmt.Sprintf("%v\tRC:i:%v", line, self.readCount)
+// PrintGFAline prints a GFA formatted segment line
+func (seg *segment) PrintGFAline() string {
+	line := fmt.Sprintf("%v\t%v\t%v\tLN:i:%v", seg.entryType, string(seg.name), string(seg.sequence), seg.length)
+	if seg.readCount != 0 {
+		line = fmt.Sprintf("%v\tRC:i:%v", line, seg.readCount)
 	}
-	if self.fragCount != 0 {
-		line = fmt.Sprintf("%v\tFC:i:%v", line, self.fragCount)
+	if seg.fragCount != 0 {
+		line = fmt.Sprintf("%v\tFC:i:%v", line, seg.fragCount)
 	}
-	if self.kmerCount != 0 {
-		line = fmt.Sprintf("%v\tKC:i:%v", line, self.kmerCount)
+	if seg.kmerCount != 0 {
+		line = fmt.Sprintf("%v\tKC:i:%v", line, seg.kmerCount)
 	}
-	if self.checksum != nil {
-		line = fmt.Sprintf("%v\tSH:i:%s", line, self.checksum)
+	if seg.checksum != nil {
+		line = fmt.Sprintf("%v\tSH:i:%s", line, seg.checksum)
 	}
-	if self.uri != "" {
-		line = fmt.Sprintf("%v\tUR:i:%v", line, self.uri)
+	if seg.uri != "" {
+		line = fmt.Sprintf("%v\tUR:i:%v", line, seg.uri)
 	}
 	return line
 }
 
-// Returns the entryType field
-func (self *segment) PrintType() string {
-	return "segment"
-}
-
-// Adds a segment to a GFA instance
-func (self *segment) Add(gfa *GFA) error {
-		if _, ok := gfa.segRecord[string(self.name)]; ok {
-			return fmt.Errorf("Duplicate segment name already present in GFA instance: %v", string(self.name))
-		}
-		gfa.segments = append(gfa.segments, self)
-		gfa.segRecord[string(self.name)] = struct{}{}
-		return nil
+// Add appends a segment to a specified GFA instance
+func (seg *segment) Add(gfa *GFA) error {
+	if _, ok := gfa.segRecord[string(seg.name)]; ok {
+		return fmt.Errorf("Duplicate segment name already present in GFA instance: %v", string(seg.name))
+	}
+	gfa.segments = append(gfa.segments, seg)
+	gfa.segRecord[string(seg.name)] = struct{}{}
+	return nil
 }
 
 /*
@@ -200,7 +205,13 @@ type link struct {
 	overlap    string
 }
 
-// Link constructor
+/*
+NewLink is a link constructor
+
+// from, fOrient, to, tOrient and overlap are requred fields
+
+// optional fields can be supplied
+*/
 func NewLink(from, fOrient, to, tOrient, overlap []byte, optional ...[]byte) (*link, error) {
 	if bytes.ContainsAny(from, "+-*= ") {
 		return nil, fmt.Errorf("Segment name can't contain +/-/*/= or whitespace")
@@ -229,20 +240,15 @@ func NewLink(from, fOrient, to, tOrient, overlap []byte, optional ...[]byte) (*l
 	return link, nil
 }
 
-// Returns a formatted link line
+// PrintGFAline prints a GFA formatted link line
 func (self *link) PrintGFAline() string {
 	line := fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v", self.entryType, string(self.from), self.fromOrient, string(self.to), self.toOrient, self.overlap)
 	return line
 }
 
-// Returns the entryType field
-func (self *link) PrintType() string {
-	return "link"
-}
-
-// Adds a link to a GFA instance
-func (self *link) Add(gfa *GFA) error {
-	gfa.links = append(gfa.links, self)
+// Add appends a link to a specified GFA instance
+func (link *link) Add(gfa *GFA) error {
+	gfa.links = append(gfa.links, link)
 	return nil
 }
 

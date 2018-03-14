@@ -10,30 +10,44 @@ var (
 	testFile = "./example.gfa"
 )
 
+// open a GFA file and collect header/comments
 func TestNewReader(t *testing.T) {
+	// open a file
 	fh, err := os.Open(testFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer fh.Close()
+	// create a new GFA reader
 	reader, err := NewReader(fh)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log("collecting metadata from file")
-	meta := reader.CollectMeta()
-	t.Log("printing header and comments")
-	t.Log(meta.Header())
-	if comments := meta.Comments(); comments != "" {
+	// collect the GFA instance
+	myGFA := reader.CollectGFA()
+	// print some stuff
+	t.Log(myGFA.PrintHeader())
+	if comments := myGFA.PrintComments(); comments != "" {
 		t.Log(comments)
 	}
-	t.Log("creating an empty GFA instance and adding metadata")
-	myGFA, err := NewGFA()
+}
+
+// open a GFA file and collect header/comments
+func TestRead(t *testing.T) {
+	// open a file
+	fh, err := os.Open(testFile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	myGFA.Metadata = meta
-	t.Log("reading GFA file and populating GFA")
+	defer fh.Close()
+	// create a new GFA reader
+	reader, err := NewReader(fh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// collect the GFA instance
+	myGFA := reader.CollectGFA()
+	// read the GFA file
 	for {
 		line, err := reader.Read()
 		if err == io.EOF {
@@ -42,17 +56,28 @@ func TestNewReader(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// print the line
+		t.Log(line)
+		t.Log(line.PrintGFAline())
+		// add the line to a GFA instance
 		if err := line.Add(myGFA); err != nil {
 			t.Fatal(err)
 		}
 	}
-	t.Log("dumping GFA content")
-	t.Log(myGFA.Metadata.Header())
-	if comments := myGFA.Metadata.Comments(); comments != "" {
-		t.Log(comments)
+	// dump the content from a GFA instance
+	t.Log("dumping content from GFA instance")
+	segments, err := myGFA.GetSegments()
+	if err != nil {
+		t.Fatal(err)
 	}
-	segments := myGFA.GetSegments()
-	links := myGFA.GetLinks()
+	for _, seg := range segments {
+		t.Log(seg.PrintGFAline())
+	}
+
+	links, err := myGFA.GetLinks()
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, seg := range segments {
 		t.Log(seg.PrintGFAline())
 	}
