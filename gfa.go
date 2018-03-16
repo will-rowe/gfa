@@ -288,10 +288,6 @@ type path struct {
 
 // NewPath is a path constructor
 func NewPath(n []byte, segs, olaps [][]byte) (*path, error) {
-	if bytes.ContainsAny(n, "+-*= ") {
-		return nil, fmt.Errorf("Path name can't contain +/-/*/= or whitespace")
-	}
-
 	return &path{
 		recordType: "P",
 		pathName:   n,
