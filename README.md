@@ -6,7 +6,6 @@
   <a href="https://godoc.org/github.com/will-rowe/gfa"><img src="https://godoc.org/github.com/will-rowe/gfa?status.svg" alt="GoDoc"></a>
   <a href="https://goreportcard.com/report/github.com/will-rowe/gfa"><img src="https://goreportcard.com/badge/github.com/will-rowe/gfa" alt="goreportcard"></a>
   <a href="https://codecov.io/gh/will-rowe/gfa"><img src="https://codecov.io/gh/will-rowe/gfa/branch/master/graph/badge.svg" alt="codecov"></a>
-  <a href=""><img src="https://img.shields.io/badge/status-unstable-red.svg" alt="unstable"></a>
 </div>
 
 ***
@@ -15,7 +14,15 @@
 
 This is a Go library for working with the `Graphical Fragment Assembly` (GFA) format.
 
-`This is a work in progress -- please check back soon...`
+> The purpose of the GFA format is to capture sequence graphs as the product of an assembly, a representation of variation in genomes, splice graphs in genes, or even overlap between reads from long-read sequencing technology.
+
+Read the GFA spec [here](https://github.com/GFA-spec/GFA-spec/blob/master/GFA1.md).
+
+Current limitations:
+
+* restricted to GFA version 1
+* does not handle the containment field
+* validation is limited
 
 ## Installation
 

@@ -183,11 +183,11 @@ func getNodes(msa *multi.Multi) (*msaNodes, error) {
 }
 
 // drawEdges connects neighbouring nodes derived from the same MSA entry
-func (msa *msaNodes) drawEdges() error {
+func (msaNodes *msaNodes) drawEdges() error {
 	// getFirstNode returns the nodeID for the first node in the MSA derived from a specified sequence
 	getFirstNode := func(seqID string) int {
-		for nodeID := 1; nodeID <= len(msa.nodeHolder); nodeID++ {
-			for _, id := range msa.nodeHolder[nodeID].parentSeqIDs {
+		for nodeID := 1; nodeID <= len(msaNodes.nodeHolder); nodeID++ {
+			for _, id := range msaNodes.nodeHolder[nodeID].parentSeqIDs {
 				if seqID == id {
 					return nodeID
 				}
@@ -197,8 +197,8 @@ func (msa *msaNodes) drawEdges() error {
 	}
 	// findNextNode returns the ID of the next node that is derived from a query MSA sequence
 	findNextNode := func(seqID string, startNode int) int {
-		for nextNode := startNode + 1; nextNode <= len(msa.nodeHolder); nextNode++ {
-			for _, parentSeqID := range msa.nodeHolder[nextNode].parentSeqIDs {
+		for nextNode := startNode + 1; nextNode <= len(msaNodes.nodeHolder); nextNode++ {
+			for _, parentSeqID := range msaNodes.nodeHolder[nextNode].parentSeqIDs {
 				if seqID == parentSeqID {
 					return nextNode
 				}
@@ -207,7 +207,7 @@ func (msa *msaNodes) drawEdges() error {
 		return 0
 	}
 	// iterate over each MSA sequence, connecting edges for each one
-	for _, seqID := range msa.seqIDs {
+	for _, seqID := range msaNodes.seqIDs {
 		startNode := getFirstNode(seqID)
 		if startNode == 0 {
 			return fmt.Errorf("Node parse error: Could not identify start node for %v", seqID)
@@ -218,8 +218,8 @@ func (msa *msaNodes) drawEdges() error {
 				break
 			}
 			// draw edges
-			msa.nodeHolder[startNode].outEdges[nextNode] = struct{}{}
-			msa.nodeHolder[nextNode].inEdges[startNode] = struct{}{}
+			msaNodes.nodeHolder[startNode].outEdges[nextNode] = struct{}{}
+			msaNodes.nodeHolder[nextNode].inEdges[startNode] = struct{}{}
 			startNode = nextNode
 		}
 	}
@@ -227,19 +227,19 @@ func (msa *msaNodes) drawEdges() error {
 }
 
 // squashNodes collapses neighbouring nodes into a single node if no branches exist
-func (msa *msaNodes) squashNodes() error {
+func (msaNodes *msaNodes) squashNodes() error {
 	squashableNodes := make(map[int]int)
 	squashNodesSortList := []int{}
 	// iterate through all the nodes in order and identify squashable nodes
-	for nodeIterator := 1; nodeIterator <= len(msa.nodeHolder); nodeIterator++ {
+	for nodeIterator := 1; nodeIterator <= len(msaNodes.nodeHolder); nodeIterator++ {
 		// if there is only one node connected via an out edge, see if the out node has multiple in edges
-		if len(msa.nodeHolder[nodeIterator].outEdges) == 1 {
+		if len(msaNodes.nodeHolder[nodeIterator].outEdges) == 1 {
 			var outNode int
-			for key := range msa.nodeHolder[nodeIterator].outEdges {
+			for key := range msaNodes.nodeHolder[nodeIterator].outEdges {
 				outNode = key
 			}
 			// if the out node has only one in edge, we can squash these nodes together
-			if len(msa.nodeHolder[outNode].inEdges) == 1 {
+			if len(msaNodes.nodeHolder[outNode].inEdges) == 1 {
 				squashableNodes[outNode] = nodeIterator
 				squashNodesSortList = append(squashNodesSortList, outNode)
 			}
@@ -249,25 +249,23 @@ func (msa *msaNodes) squashNodes() error {
 	sort.Sort(sort.Reverse(sort.IntSlice(squashNodesSortList)))
 	for _, outNode := range squashNodesSortList {
 		inNode := squashableNodes[outNode]
-		msa.nodeHolder[inNode].base += msa.nodeHolder[outNode].base
-		delete(msa.nodeHolder, outNode)
+		msaNodes.nodeHolder[inNode].base += msaNodes.nodeHolder[outNode].base
+		delete(msaNodes.nodeHolder, outNode)
 	}
 	// remove all gaps, create new IDs and clear edges
 	newNodeHolder := make(map[int]*node)
 	nodeNamer := 1
-	orderedList := msa.getOrderedList()
+	orderedList := msaNodes.getOrderedList()
 	for _, i := range orderedList {
-		if msa.nodeHolder[i].base != "" {
-			msa.nodeHolder[i].outEdges = make(map[int]struct{})
-			msa.nodeHolder[i].inEdges = make(map[int]struct{})
-			newNodeHolder[nodeNamer] = msa.nodeHolder[i]
+		if msaNodes.nodeHolder[i].base != "" {
+			msaNodes.nodeHolder[i].outEdges = make(map[int]struct{})
+			msaNodes.nodeHolder[i].inEdges = make(map[int]struct{})
+			newNodeHolder[nodeNamer] = msaNodes.nodeHolder[i]
 			nodeNamer++
 		}
 	}
-	msa.nodeHolder = newNodeHolder
+	msaNodes.nodeHolder = newNodeHolder
 	// draw edges between the new nodes
-	if err := msa.drawEdges(); err != nil {
-		return err
-	}
-	return nil
+    err := msaNodes.drawEdges()
+	return err
 }
