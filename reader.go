@@ -71,10 +71,10 @@ func (r *Reader) Read() (gfaLine, error) {
 	if err != nil {
 		return nil, err
 	}
+	// ignore empty lines TODO: I need a better fix than this
 	if len(bytesLine) <= 1 {
 		return nil, fmt.Errorf("Encountered empty line, quiting")
 	}
-
 	// trim the line
 	bytesLine = bytesLine[:len(bytesLine)-1]
 	if bytesLine[len(bytesLine)-1] == '\r' {
@@ -130,7 +130,7 @@ func (r *Reader) Read() (gfaLine, error) {
 	return line, nil
 }
 
-// Writer implements GFA format writing
+// GFAwriter implements GFA format writing
 type GFAwriter struct {
 	w io.Writer
 }

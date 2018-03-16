@@ -119,9 +119,12 @@ func TestNewWriter(t *testing.T) {
 		}
 	}
 	// create a gfaWriter
-	outfile, err := os.Create("./example2.gfa")
+	outfile, err := os.Create("./example.gfa")
 	defer outfile.Close()
 	writer, err := NewWriter(outfile, myGFA)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// write the GFA content
 	if err := myGFA.WriteGFAContent(writer); err != nil {
 		t.Fatal(err)
