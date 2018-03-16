@@ -25,12 +25,48 @@ go get github.com/will-rowe/gfa
 
 ## Example usage
 
-This is just a basic example for now:
-* creates a GFA reader to read a GFA file from STDIN/disk
-* creates a GFA instance to store GFA data
-* checks the version and prints header /  comments
-* reads/prints the GFA lines
-* store lines in a GFA instance
+### convert an MSA file to a GFA file
+
+``` go
+package main
+
+import (
+	"log"
+	"os"
+
+	"github.com/will-rowe/gfa"
+)
+
+var (
+	inputFile = "./example.msa"
+)
+
+func main() {
+	// open the MSA
+	msa, _ := gfa.ReadMSA(inputFile)
+
+	// convert the MSA to a GFA instance
+	myGFA, err := gfa.MSA2GFA(msa)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// create a gfaWriter
+	outfile, err := os.Create("./example.gfa")
+	defer outfile.Close()
+	writer, err := gfa.NewWriter(outfile, myGFA)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// write the GFA content
+	if err := myGFA.WriteGFAContent(writer); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
+### process a GFA file line by line
 
 ``` go
 package main
