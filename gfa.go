@@ -73,9 +73,6 @@ func (gfa *GFA) GetSegments() ([]*segment, error) {
 
 // GetLinks returns a slice of all the links held in the GFA instance
 func (gfa *GFA) GetLinks() ([]*link, error) {
-	if len(gfa.links) == 0 {
-		return nil, fmt.Errorf("no links currently held in GFA instance")
-	}
 	return gfa.links, nil
 }
 
@@ -170,9 +167,9 @@ type gfaLine interface {
 // A segment contains a type field, name and sequence (all required), plus optional fields (length, ...)
 type segment struct {
 	recordType string
-	name       []byte
-	sequence   []byte // this is technically not required by the spec but I have set it as required here
-	length     int    // this is technically an optional field but is added automatically when a sequence is supplied
+	Name       []byte
+	Sequence   []byte // this is technically not required by the spec but I have set it as required here
+	Length     int    // this is technically an optional field but is added automatically when a sequence is supplied
 	optional   *optionalFields
 }
 
@@ -186,9 +183,9 @@ func NewSegment(n, seq []byte) (*segment, error) {
 	}
 	return &segment{
 		recordType: "S",
-		name:       n,
-		sequence:   seq,
-		length:     len(seq),
+		Name:       n,
+		Sequence:   seq,
+		Length:     len(seq),
 	}, nil
 }
 
@@ -200,27 +197,27 @@ func (seg *segment) AddOptionalFields(oFs *optionalFields) {
 // PrintGFAline prints a GFA formatted segment line
 func (seg *segment) PrintGFAline() string {
 	if seg.optional != nil {
-		return fmt.Sprintf("%v\t%v\t%v\tLN:i:%v\t%v", seg.recordType, string(seg.name), string(seg.sequence), seg.length, seg.optional.printString)
+		return fmt.Sprintf("%v\t%v\t%v\tLN:i:%v\t%v", seg.recordType, string(seg.Name), string(seg.Sequence), seg.Length, seg.optional.printString)
 	}
-	return fmt.Sprintf("%v\t%v\t%v\tLN:i:%v", seg.recordType, string(seg.name), string(seg.sequence), seg.length)
+	return fmt.Sprintf("%v\t%v\t%v\tLN:i:%v", seg.recordType, string(seg.Name), string(seg.Sequence), seg.Length)
 }
 
 // Add checks that a segment is not already in a specified GFA isntance, then adds it
 func (seg *segment) Add(gfa *GFA) error {
-	if _, ok := gfa.segRecord[string(seg.name)]; ok {
-		return fmt.Errorf("Duplicate segment name already present in GFA instance: %v", string(seg.name))
+	if _, ok := gfa.segRecord[string(seg.Name)]; ok {
+		return fmt.Errorf("Duplicate segment name already present in GFA instance: %v", string(seg.Name))
 	}
 	gfa.segments = append(gfa.segments, seg)
-	gfa.segRecord[string(seg.name)] = struct{}{}
+	gfa.segRecord[string(seg.Name)] = struct{}{}
 	return nil
 }
 
 // A link connects oriented segments
 type link struct {
 	recordType string
-	from       []byte
+	From       []byte
 	fromOrient string
-	to         []byte
+	To         []byte
 	toOrient   string
 	overlap    string
 	optional   *optionalFields
@@ -235,8 +232,8 @@ func NewLink(from, fOrient, to, tOrient, overlap []byte) (*link, error) {
 		return nil, fmt.Errorf("Segment name can't contain +/-/*/= or whitespace")
 	}
 	link := new(link)
-	link.from = from
-	link.to = to
+	link.From = from
+	link.To = to
 	link.recordType = "L"
 	fori, tori := string(fOrient), string(tOrient)
 	if (fori == "+") || (fori == "-") {
@@ -261,9 +258,9 @@ func (link *link) AddOptionalFields(oFs *optionalFields) {
 // PrintGFAline prints a GFA formatted link line
 func (link *link) PrintGFAline() string {
 	if link.optional != nil {
-		return fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v", link.recordType, string(link.from), link.fromOrient, string(link.to), link.toOrient, link.overlap, link.optional.printString)
+		return fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v", link.recordType, string(link.From), link.fromOrient, string(link.To), link.toOrient, link.overlap, link.optional.printString)
 	}
-	return fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v", link.recordType, string(link.from), link.fromOrient, string(link.to), link.toOrient, link.overlap)
+	return fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v", link.recordType, string(link.From), link.fromOrient, string(link.To), link.toOrient, link.overlap)
 }
 
 // Add appends a link to a specified GFA instance
@@ -280,8 +277,8 @@ type containment struct {
 // A path records a graph traversal
 type path struct {
 	recordType string
-	pathName   []byte
-	segNames   [][]byte
+	PathName   []byte
+	SegNames   [][]byte
 	overlaps   [][]byte
 	optional   *optionalFields
 }
@@ -290,15 +287,15 @@ type path struct {
 func NewPath(n []byte, segs, olaps [][]byte) (*path, error) {
 	return &path{
 		recordType: "P",
-		pathName:   n,
-		segNames:   segs,
+		PathName:   n,
+		SegNames:   segs,
 		overlaps:   olaps,
 	}, nil
 }
 
 // PrintGFAline prints a GFA formatted segment line
 func (path *path) PrintGFAline() string {
-	return fmt.Sprintf("%v\t%v\t%v\t%v", path.recordType, string(path.pathName), string(bytes.Join(path.segNames, []byte(","))), string(bytes.Join(path.overlaps, []byte(","))))
+	return fmt.Sprintf("%v\t%v\t%v\t%v", path.recordType, string(path.PathName), string(bytes.Join(path.SegNames, []byte(","))), string(bytes.Join(path.overlaps, []byte(","))))
 }
 
 // Add appends a path to a specified GFA instance
