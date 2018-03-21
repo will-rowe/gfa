@@ -12,6 +12,7 @@ package gfa
 import (
 	"bytes"
 	"fmt"
+	"strings"
 )
 
 // The GFA type holds all the information from a GFA formatted file
@@ -311,9 +312,9 @@ func (path *path) AddOptionalFields(oFs *optionalFields) {
 
 // The optional fields type is an effort to clean up the segment/containment/path types and have all the optional fields in one type
 type optionalFields struct {
-	readCount   int
-	fragCount   int
-	kmerCount   int
+	readCount   string
+	fragCount   string
+	kmerCount   string
 	checksum    []byte
 	uri         string
 	printString string
@@ -330,14 +331,14 @@ func NewOptionalFields(optional ...[]byte) (*optionalFields, error) {
 			case "LN":
 				continue
 			case "RC":
-				oFs.readCount = int(val[2][0])
-				oFs.printString = fmt.Sprintf("RC:i:%d\t%v", oFs.readCount, oFs.printString)
+				oFs.readCount = string(val[2])
+				oFs.printString = fmt.Sprintf("RC:i:%s\t%v", oFs.readCount, oFs.printString)
 			case "FC":
-				oFs.fragCount = int(val[2][0])
-				oFs.printString = fmt.Sprintf("FC:i:%d\t%v", oFs.fragCount, oFs.printString)
+				oFs.fragCount = string(val[2])
+				oFs.printString = fmt.Sprintf("FC:i:%s\t%v", oFs.fragCount, oFs.printString)
 			case "KC":
-				oFs.kmerCount = int(val[2][0])
-				oFs.printString = fmt.Sprintf("KC:i:%d\t%v", oFs.kmerCount, oFs.printString)
+				oFs.kmerCount = string(val[2])
+				oFs.printString = fmt.Sprintf("KC:i:%s\t%v", oFs.kmerCount, oFs.printString)
 			case "SH":
 				oFs.checksum = val[2]
 				oFs.printString = fmt.Sprintf("SH:H:%s\t%v", oFs.checksum, oFs.printString)
@@ -353,5 +354,7 @@ func NewOptionalFields(optional ...[]byte) (*optionalFields, error) {
 	} else {
 		return nil, fmt.Errorf("No optional fields supplied")
 	}
+	// trim the final tab from the printString
+	oFs.printString = strings.Trim(oFs.printString, "\t")
 	return oFs, nil
 }
