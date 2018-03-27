@@ -19,7 +19,7 @@ func ReadMSA(fileName string) (*multi.Multi, error) {
 	// open a file
 	fh, err := os.Open(fileName)
 	if err != nil {
-		return nil, fmt.Errorf("Can't open file: %v", fileName)
+		return nil, err
 	}
 	defer fh.Close()
 	// read in the MSA
@@ -27,7 +27,7 @@ func ReadMSA(fileName string) (*multi.Multi, error) {
 	m, _ := multi.NewMulti("", nil, seq.DefaultConsensus)
 	msa, err := alignio.NewReader(r, m).Read()
 	if err != nil {
-		return nil, fmt.Errorf("Can't read MSA from file: %v", fileName)
+		return nil, err
 	}
 	return msa, nil
 }
