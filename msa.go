@@ -189,7 +189,7 @@ func (msaNodes *msaNodes) drawEdges() error {
 		for nodeID := 1; nodeID <= len(msaNodes.nodeHolder); nodeID++ {
 			for _, id := range msaNodes.nodeHolder[nodeID].parentSeqIDs {
 				if seqID == id {
-					return nodeID
+						return nodeID
 				}
 			}
 		}
@@ -200,7 +200,7 @@ func (msaNodes *msaNodes) drawEdges() error {
 		for nextNode := startNode + 1; nextNode <= len(msaNodes.nodeHolder); nextNode++ {
 			for _, parentSeqID := range msaNodes.nodeHolder[nextNode].parentSeqIDs {
 				if seqID == parentSeqID {
-					return nextNode
+							return nextNode
 				}
 			}
 		}
@@ -232,6 +232,11 @@ func (msaNodes *msaNodes) squashNodes() error {
 	squashNodesSortList := []int{}
 	// iterate through all the nodes in order and identify squashable nodes
 	for nodeIterator := 1; nodeIterator <= len(msaNodes.nodeHolder); nodeIterator++ {
+		// don't bother squashing gaps
+		if msaNodes.nodeHolder[nodeIterator].base == "" {
+			//delete(msaNodes.nodeHolder, nodeIterator)
+			continue
+		}
 		// if there is only one node connected via an out edge, see if the out node has multiple in edges
 		if len(msaNodes.nodeHolder[nodeIterator].outEdges) == 1 {
 			var outNode int
@@ -245,7 +250,7 @@ func (msaNodes *msaNodes) squashNodes() error {
 			}
 		}
 	}
-	// reverse sort the identified squashale nodes and squash them
+	// reverse sort the identified squashable nodes and squash them
 	sort.Sort(sort.Reverse(sort.IntSlice(squashNodesSortList)))
 	for _, outNode := range squashNodesSortList {
 		inNode := squashableNodes[outNode]

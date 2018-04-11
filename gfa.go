@@ -152,6 +152,35 @@ func (gfa *GFA) WriteGFAContent(w *GFAwriter) error {
 	return nil
 }
 
+// PrintSequence will return the sequence encoded by a specified pathName
+func (gfa *GFA) PrintSequence(pathName []byte) ([]byte, error) {
+	sequence := []byte{}
+	if err := gfa.Validate(); err != nil {
+		return nil, err
+	}
+	// get the specified path from the graph
+	for _, path := range gfa.paths {
+		if string(path.PathName) == string(pathName) {
+			// read the graph segments into a map
+			segMap := make(map[string][]byte)
+			for _, seg := range gfa.segments {
+				segMap[string(seg.Name)] = seg.Sequence
+			}
+			// build up the sequence using the path and segMap
+			for _, name := range path.SegNames {
+				// remove the plus from the seg name, lookup seg in map, append seq
+				sequence = append(sequence, segMap[string(bytes.TrimSuffix(name, []byte("+")))]...)
+			}
+			break
+		}
+	}
+	// if the specified pathName wasn't found, return error
+	if len(sequence) == 0 {
+		return nil, fmt.Errorf("specified pathName not found in GFA")
+	}
+	return sequence, nil
+}
+
 // A header contains a type field (required) and a GFA version number field (optional)
 type header struct {
 	recordType string
