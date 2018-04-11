@@ -1,11 +1,14 @@
 package gfa
 
 import (
+	"os"
 	"testing"
 )
 
 var (
 	testMSAfile = "./example.msa"
+	testGFAfile = "./example.gfa"
+	newGFAfile = "./converted-msa.gfa"
 )
 
 // test for loading MSA from file
@@ -32,27 +35,41 @@ func TestMSAcleaner(t *testing.T) {
 	}
 }
 
-// test for creating a GFA instance from an MSA
+// test to create nodes for each unique base in every column of the alignment
+func TestGetNodesAndEdges(t *testing.T) {
+	msa, _ := ReadMSA(testMSAfile)
+	msaNodes, _ := getNodes(msa)
+	// draw edges between nodes
+	err := msaNodes.drawEdges()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+
+// test for converting MSA to a GFA file - combines all the functions tested above
 func TestMSA2GFA(t *testing.T) {
+	// convert the MSA
 	msa, err := ReadMSA(testMSAfile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	gfa, err := MSA2GFA(msa)
+	myGFA, err := MSA2GFA(msa)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(gfa.PrintHeader())
-}
-
-func TestGetNodesAndEdges(t *testing.T) {
-	msa, _ := ReadMSA(testMSAfile)
-	msaNodes, _ := getNodes(msa)
-	for _, seqID := range msaNodes.seqIDs {
-		t.Log(seqID)
-	}
-	err := msaNodes.drawEdges()
+	// create a gfaWriter
+	outfile, err := os.Create(newGFAfile)
+	defer outfile.Close()
+	writer, err := NewWriter(outfile, myGFA)
 	if err != nil {
+		t.Fatal(err)
+	}
+	// write the GFA content
+	if err := myGFA.WriteGFAContent(writer); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(newGFAfile); err != nil {
 		t.Fatal(err)
 	}
 }
