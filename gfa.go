@@ -227,6 +227,9 @@ func (seg *segment) AddOptionalFields(oFs *optionalFields) {
 
 // GetKmerCount returns the k-mer count of a segment
 func (seg *segment) GetKmerCount() (int, error) {
+	if seg.optional.kmerCount == "" {
+		return 0, nil
+	}
 	return strconv.Atoi(seg.optional.kmerCount)
 }
 
