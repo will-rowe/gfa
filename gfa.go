@@ -227,10 +227,12 @@ func (seg *segment) AddOptionalFields(oFs *optionalFields) {
 
 // GetKmerCount returns the k-mer count of a segment
 func (seg *segment) GetKmerCount() (int, error) {
-	if seg.optional.kmerCount == "" {
-		return 0, nil
+	if seg.optional != nil {
+		if seg.optional.kmerCount != "" {
+			return strconv.Atoi(seg.optional.kmerCount)
+		}
 	}
-	return strconv.Atoi(seg.optional.kmerCount)
+	return 0, nil
 }
 
 // PrintGFAline prints a GFA formatted segment line
