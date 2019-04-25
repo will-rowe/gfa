@@ -12,6 +12,7 @@ package gfa
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -222,6 +223,11 @@ func NewSegment(n, seq []byte) (*segment, error) {
 // AddOptionalFields adds a set of optional fields to a segment
 func (seg *segment) AddOptionalFields(oFs *optionalFields) {
 	seg.optional = oFs
+}
+
+// GetKmerCount returns the k-mer count of a segment
+func (seg *segment) GetKmerCount() (int, error) {
+	return strconv.Atoi(seg.optional.kmerCount)
 }
 
 // PrintGFAline prints a GFA formatted segment line
